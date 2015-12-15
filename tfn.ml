@@ -147,7 +147,7 @@ module Printf_custom = struct
     | APrim : 'a -> 'a base at
     | AConcat : string base at * string base at -> string base at
     | AStringOfInt : int base at -> string base at
-  and 'a y = int(* domain left uninstantiated *)
+  and 'a y (* domain left uninstantiated *)
 
   and _ tp =
     | Base : 'a base tp
