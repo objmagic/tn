@@ -147,13 +147,48 @@ module Printf_custom = struct
     | APrim : 'a -> 'a base at
     | AConcat : string base at * string base at -> string base at
     | AStringOfInt : int base at -> string base at
-  and 'a y (* domain left uninstantiated *)
+  and 'a y = int (* domain left uninstantiated *)
 
   and _ tp =
     | Base : 'a base tp
     | Arr : 'a tp * 'b tp -> ('a -> 'b) tp
 
   and 'a base = Atom of 'a base at (* no (normalizing) closed inhabitant *)
+
+  let string_of_y n = "x" ^ (string_of_int n)
+
+  let gety =
+    let counter = ref 0 in
+    fun () -> incr counter; !counter
+
+  let indent =
+    let counter = ref 0 in
+    fun () -> counter := !counter + 2; String.make !counter ' '
+
+  (* every day we stray from God's light *)
+  let print_prim : 'a -> string = fun v ->
+    match Obj.tag (Obj.repr v) with
+    | string_tag -> (Obj.magic v)
+    | int_tag -> string_of_int (Obj.magic v)
+    | double_tag -> string_of_float (Obj.magic v)
+    | _ -> "<unknown>"
+
+  let rec string_of_nf : type a. a nf -> string = function
+    | NLam f ->
+      let y = gety () in
+      let tm = string_of_nf (f y) in
+      Printf.sprintf "fun %s -> %s" (string_of_y y) tm
+    | NAt at -> string_of_at at
+
+
+  and string_of_at : type a. a base at -> string = function
+    | AApp (f, arg) -> Printf.sprintf "(f (%s))" (string_of_nf arg)
+    | AVar v -> string_of_y v
+    | APrim a -> Printf.sprintf "\"%s\"" (print_prim a) (* life is hard... *)
+    | AConcat (s1, s2) ->
+      Printf.sprintf "%s ^ %s" (string_of_at s1) (string_of_at s2)
+    | AStringOfInt n ->
+      Printf.sprintf "StringOfInt(%s)" (string_of_at n)
 
   let rec eval : type a. a tm -> a vl = function
     | Lam f -> VFun (fun x -> eval (f x))
@@ -217,5 +252,8 @@ module Printf_custom = struct
   (* (int base -> string base -> int base -> string base -> string base) nf *)
   let pe_print = reify tp tm
 
-  (* TODO: pretty-printing [nf] value *)
+  let print () = print_endline (string_of_nf pe_print)
+
 end
+
+let () = Printf_custom.print ()
